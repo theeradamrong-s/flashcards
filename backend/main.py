@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlmodel import Session, select
 
 from database import create_db_and_tables, get_session
-from models import Deck, Card, DeckUpdate
+from models import Deck, Card, DeckUpdate, CardCreate, CardUpdate
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -59,4 +59,42 @@ def delete_deck(deck_id: int, session: Session = Depends(get_session)):
     session.commit()
     return {"ok": True}
 
+@app.post("/decks/{deck_id}/cards")
+def create_card(deck_id: int, card_data: CardCreate, session: Session = Depends(get_session)):
+    deck = session.get(Deck, deck_id)              
+    if deck is None:                                 
+        raise HTTPException(status_code=404, detail="Deck not found")
+    card = Card(deck_id=deck_id, front=card_data.front, back=card_data.back)
+    session.add(card)
+    session.commit()
+    session.refresh(card)
+    return card
+
+@app.get("/decks/{deck_id}/cards")
+def list_cards(deck_id: int, session: Session = Depends(get_session)):
+    deck = session.get(Deck, deck_id)
+    if deck is None:
+        raise HTTPException(404, "Deck not found")
+    cards = session.exec(select(Card).where(Card.deck_id == deck_id)).all()
+    return cards
+
+@app.patch("/cards/{card_id}")
+def update_card(card_id: int, card_data: CardUpdate, session: Session = Depends(get_session)):
+    card = session.get(Card, card_id)
+    if card is None: 
+        raise HTTPException(404, "Card not found")
+    changes = card_data.model_dump(exclude_unset=True)
+    card.sqlmodel_update(changes)                      
+    session.add(card)
+    session.commit()
+    session.refresh(card)
+    return card
     
+@app.delete("/cards/{card_id}")
+def delete_card(card_id: int, session: Session = Depends(get_session)):
+    card = session.get(Card, card_id)
+    if card is None:
+        raise HTTPException(404, "Card not found")
+    session.delete(card)
+    session.commit()
+    return {"ok": True}

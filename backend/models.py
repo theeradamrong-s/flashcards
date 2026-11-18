@@ -13,3 +13,9 @@ class Card(SQLModel, table=True):
     deck_id: int = Field(foreign_key="deck.id")
     front: str
     back: str
+class CardCreate(SQLModel):
+    front: str
+    back: str
+class CardUpdate(SQLModel):
+    front: str | None = None
+    back: str | None = None
