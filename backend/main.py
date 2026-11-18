@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
 from database import create_db_and_tables, get_session
 from models import Deck, Card, DeckUpdate, CardCreate, CardUpdate
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -11,6 +13,12 @@ async def lifespan(app: FastAPI):
     yield                  
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"], #Vue app
+    allow_methods=["*"],                     #GET, POST, etc.
+    allow_headers=["*"],                
+)
 
 @app.get("/")
 def home():
