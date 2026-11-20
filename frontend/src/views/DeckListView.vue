@@ -1,42 +1,112 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { api } from '@/api'
 
-const API = 'http://127.0.0.1:8001'
-
-const decks = ref([])              
+const decks = ref([])
+const loading = ref(true)
+const error = ref('')
 const newName = ref('')
 const newDescription = ref('')
 
 async function loadDecks() {
-  const res = await fetch(`${API}/decks`)  
-  decks.value = await res.json()          
-}
-async function createDeck(){
-  await fetch(`${API}/decks`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: newName.value, description: newDescription.value }),
-  })
-  newName.value = ''
-  newDescription.value = ''
-  loadDecks()
+  try {
+    decks.value = await api('/decks')
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    loading.value = false
+  }
 }
 
-onMounted(loadDecks)                     
+async function createDeck() {
+  error.value = ''
+  try {
+    await api('/decks', {
+      method: 'POST',
+      body: { name: newName.value, description: newDescription.value },
+    })
+    newName.value = ''
+    newDescription.value = ''
+    await loadDecks()
+  } catch (err) {
+    error.value = err.message
+  }
+}
+
+onMounted(loadDecks)
 </script>
 
 <template>
   <h1>My Decks</h1>
-  <p v-if="decks.length === 0">No decks yet.</p>
-  <form @submit.prevent="createDeck">
-    <input v-model="newName" placeholder="Deck name" required />
-    <input v-model="newDescription" placeholder="Deck description" />
-    <button>Add deck</button> 
+
+  <form class="panel new-deck" @submit.prevent="createDeck">
+    <input v-model="newName" placeholder="Deck name" required maxlength="100" />
+    <input v-model="newDescription" placeholder="Description (optional)" maxlength="500" />
+    <button class="btn btn-primary">Add deck</button>
   </form>
-  <ul>
-    <li v-for="deck in decks" :key="deck.id">
-      <RouterLink :to="`/decks/${deck.id}`">{{ deck.name }}</RouterLink>
-      <span v-if="deck.description"> — {{ deck.description }}</span>
+
+  <p v-if="error" class="error">{{ error }}</p>
+  <p v-if="loading" class="muted">Loading…</p>
+  <p v-else-if="decks.length === 0" class="empty">No decks yet. Create your first one above.</p>
+
+  <ul class="deck-grid">
+    <li v-for="deck in decks" :key="deck.id" class="panel deck">
+      <RouterLink :to="`/decks/${deck.id}`" class="deck-name">{{ deck.name }}</RouterLink>
+      <p v-if="deck.description" class="muted">{{ deck.description }}</p>
+      <div class="deck-footer">
+        <span class="muted">
+          {{ deck.card_count }} {{ deck.card_count === 1 ? 'card' : 'cards' }}
+          <span v-if="deck.due_count" class="badge">{{ deck.due_count }} due</span>
+        </span>
+        <RouterLink
+          v-if="deck.due_count"
+          :to="`/decks/${deck.id}/study`"
+          class="btn btn-primary btn-small"
+        >
+          Study
+        </RouterLink>
+      </div>
     </li>
   </ul>
 </template>
+
+<style scoped>
+.new-deck {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 1.5rem;
+}
+.new-deck input {
+  flex: 1 1 180px;
+}
+.deck-grid {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.deck {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.deck-name {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+.deck-name:hover {
+  color: var(--accent);
+}
+.deck-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+</style>
